@@ -10,6 +10,13 @@ set LF=^
 
 : leave 2 previous lines blank
 
+set file=%1
+if not "%2"=="" (
+    set file="!file! %2"
+)
+: remove surrounding " if any
+for /f "useback tokens=*" %%a in ('%file%') do set file=%%~a
+
 rem Find MSMoney path
 rem
 rem trouve la parenthese dans: (par d�faut)   REG_SZ    D:\Program Files\Microsoft Money 2005\MNYCoreFiles\MSMoney.exe -url:%1
@@ -64,13 +71,12 @@ for /f "tokens=1,* delims=)" %%a in ('reg query HKEY_CLASSES_ROOT\%ext%.Document
             )
             del %errf%
             echo Program successfully installed.
-            if "%1"=="" pause
+            if "%file%"=="" pause
         )
     )
 )
 
 
-set file=%1
 if "%file%"=="" exit /B
 set accounts=MAIN
 for %%A in ("!LF!") do (
@@ -79,20 +85,21 @@ for %%A in ("!LF!") do (
         rem blanks in strings mean "or", so replace them with .
         set regexp=!regexp: =.!
         findstr /B "!regexp!" "%file%" >nul
-        if errorlevel 0 (
+        if !errorlevel!==0 (
             set accounts=!accounts!:%%a
         )
     )
 )
-
-echo %accounts%
 
 for %%A in ("!LF!") do (
     for /f "tokens=* delims=:" %%a in ("!accounts::=%%~A!") do (
         set account=%%a
         set memo=M.*!account!
 
-        set ofile=%TEMP%\%~n1_!account: =_!.ofx
+        : remove () part in case the file is a copy
+        set ofile=%~n1
+        for /f "tokens=1 delims=(" %%a in ("!ofile!") do set n1=%%~a
+        set ofile=%TEMP%\!n1!_!account: =_!.ofx
 
         <nul set /p =Creating !ofile!...
         (
@@ -118,7 +125,7 @@ for %%A in ("!LF!") do (
             echo ^</SIGNONMSGSRSV1^>
             echo ^<BANKMSGSRSV1^>
             echo ^<STMTTRNRS^>
-            echo ^<TRNUID^>%~n1
+            echo ^<TRNUID^>!n1!
             echo ^<STATUS^>
             echo ^<CODE^>0
             echo ^<SEVERITY^>INFO
@@ -132,7 +139,7 @@ for %%A in ("!LF!") do (
             echo ^<BANKID^>00000
             echo ^<BRANCHID^>00000
             if "!account!"=="MAIN" (
-                echo ^<ACCTID^>%~n1
+                echo ^<ACCTID^>!n1!
             ) else (
                 echo ^<ACCTID^>!account!               
             )
@@ -240,6 +247,26 @@ for %%A in ("!LF!") do (
                                                 )
                                             )
 
+                                            rem case of goldcard
+                                            rem 2201/FORVILLE CANNES 06 CANNES
+                                            if "!FM:~4,1!"=="/" (
+                                                set numbers="str01020304050607080910111213141516171819202122232425262728293031"
+                                                call set numb=%%numbers:!FM:~0,2!=%%
+                                                if not "!numb!"=="!numbers!" (
+                                                    : 2 first chars are a number
+                                                    call set numb=%%numbers:!FM:~2,2!=%%
+                                                    if not "!numb!"=="!numbers!" (
+                                                        : 2 next chars are a number
+                                                        set FN=!FM:~5!
+                                                        set date=!FM:~0,2!/!FM:~2,2!
+                                                        set year=!FD:~6,4!
+                                                        set /A diff=1!FD:~3,2!!FD:~0,2!-1!date:~3,2!!date:~0,2!
+                                                        if "!diff:~0,1!"=="-" set /A year=!year!-1
+                                                        set FD=!date!/!year!
+                                                    )
+                                                )
+                                            )
+
                                             rem ignore transactions before 2018
                                             set /a diffy=!FD:~6,4!-2018
                                             if "!diffy:~0,1!"=="-" set do=0
@@ -275,9 +302,16 @@ for %%A in ("!LF!") do (
                                             set FM=
                                         )
                                     ) else (
+                                        set unknown=1
                                         if "!line!"=="Bank" (
                                             rem do nothing
-                                        ) else echo Unknown statement: !line! >&2
+                                            set unknown=0
+                                        ) 
+                                        if "!line!"=="CCard" (
+                                            rem do nothing
+                                            set unknown=0
+                                        ) 
+                                        if !unknown!==1 echo Unknown statement: !line! >&2
                                     )
                                 )
                             )
@@ -303,14 +337,14 @@ for %%A in ("!LF!") do (
         ) > !ofile!
         echo. !trcount! transactions
 
-        rem more !ofile!
+        rem more "!ofile!"
 
         <nul set /p =Importing file into Money...
         "%moneyPath%mnyimprt.exe" !ofile!
         echo.
     )
 )
-rem pause
+pause
 
 
 
