@@ -12,3 +12,6 @@ Crédit Agricole | ofx
 Société Générale | qif
 
 
+# Disclaimer
+These .bat files are provided only for information, with no garanty nor support. 
+If you want to automatically download your bank accounts to Microsoft Money, please use the preferred solution `MSMoneyImporter`as described [here](https://github.com/bchabrier/MSMoneyImporter).
