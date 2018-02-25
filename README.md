@@ -4,7 +4,7 @@ This provides `ofx` and `qif` import patches for Microsoft Money 2005. Indeed, s
 # Installation
 To install, run `ofxpatch.bat` and `qifpatch.bat` in elevated mode. This will register `ofxpatch.bat` and `qifpatch.bat` as the programs to be called when files with `.ofx` and `.qif` extensions are opened.
 
-## Supported banks
+# Supported banks
 
 Bank | type
 ---- | ----
